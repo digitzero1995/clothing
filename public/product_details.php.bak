@@ -1,0 +1,209 @@
+<?php
+include '../config/db.php';
+session_start();
+
+// --- Pagination setup ---
+$limit = 8; // products per page
+$page = isset($_GET['page']) ? max(1, intval($_GET['page'])) : 1;
+$offset = ($page - 1) * $limit;
+
+// Selected category
+$selectedCategory = isset($_GET['category']) ? intval($_GET['category']) : 0;
+
+// Fetch categories
+$categories = mysqli_query($conn, "
+    SELECT DISTINCT c.id, c.name 
+    FROM categories c
+    INNER JOIN products p ON p.category_id = c.id
+    ORDER BY c.name ASC
+");
+
+// Count total products for pagination
+$countSql = "
+    SELECT COUNT(*) AS total
+    FROM products p
+    " . ($selectedCategory > 0 ? "WHERE p.category_id = $selectedCategory" : "");
+$countRes = mysqli_query($conn, $countSql);
+$totalProducts = mysqli_fetch_assoc($countRes)['total'];
+$totalPages = ceil($totalProducts / $limit);
+
+// Fetch products with average rating + review count (with LIMIT for pagination)
+$sql = "
+    SELECT 
+        p.*, 
+        c.name AS category_name,
+        COALESCE(r.avg_rating, 0) AS avg_rating,
+        COALESCE(r.review_count, 0) AS review_count
+    FROM products p
+    LEFT JOIN categories c ON p.category_id = c.id
+    LEFT JOIN (
+        SELECT product_id, AVG(rating) AS avg_rating, COUNT(*) AS review_count
+        FROM reviews
+        GROUP BY product_id
+    ) r ON r.product_id = p.id
+";
+if ($selectedCategory > 0) {
+    $sql .= " WHERE p.category_id = $selectedCategory";
+}
+$sql .= " ORDER BY p.id DESC LIMIT $limit OFFSET $offset";
+$products = mysqli_query($conn, $sql);
+
+// Helper: render star icons
+function renderStars($avg) {
+    $avg = floatval($avg);
+    $full = floor($avg);
+    $half = ($avg - $full >= 0.5) ? 1 : 0;
+    $empty = 5 - $full - $half;
+
+    $html = '';
+    for ($i = 0; $i < $full; $i++) { $html .= '<i class="fa-solid fa-star"></i>'; }
+    if ($half) { $html .= '<i class="fa-solid fa-star-half-stroke"></i>'; }
+    for ($i = 0; $i < $empty; $i++) { $html .= '<i class="fa-regular fa-star"></i>'; }
+    $html .= ' <span class="avg">' . number_format($avg, 1) . '</span>';
+    return $html;
+}
+?>
+<?php include 'header.php'; ?>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Products</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+  <style>
+    body { font-family: Arial, sans-serif; margin: 0; padding: 0; background: #f9f9f9; }
+
+    header {
+      background: linear-gradient(90deg, #164361ff, #0b3a47ff);
+      color: white; text-align: center; padding: 15px;
+      font-size: 24px; font-weight: bold;
+      position: sticky; top: 0; z-index: 1000;
+      box-shadow: 0 3px 10px rgba(0,0,0,0.2);
+    }
+
+    .container { display: flex; margin: 20px; gap: 20px; }
+
+    .filter {
+      width: 220px; background: #fff; padding: 20px;
+      border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+      position: sticky; top: 80px; height: fit-content;
+    }
+    .filter h3 { margin-bottom: 15px; color: #333; }
+    .filter ul { list-style: none; padding: 0; }
+    .filter ul li { margin-bottom: 10px; }
+    .filter ul li a {
+      text-decoration: none; color: #444; padding: 8px 12px;
+      display: block; border-radius: 8px; transition: all 0.3s;
+    }
+    .filter ul li a:hover,
+    .filter ul li a.active { background: linear-gradient(90deg,#215096ff,#1f7f9aff); color: white; transform: translateX(5px); }
+
+    .products {
+      flex: 1;
+      display: grid;
+      grid-template-columns: repeat(4, 1fr); /* ✅ Exactly 4 per row */
+      gap: 20px;
+    }
+
+    .product-card {
+      background: white; border-radius: 15px; padding: 15px;
+      text-align: center; box-shadow: 0 6px 15px rgba(0,0,0,0.1);
+      transition: transform 0.3s, box-shadow 0.3s;
+    }
+    .product-card:hover { transform: translateY(-8px); box-shadow: 0 12px 25px rgba(0,0,0,0.2); }
+
+    .product-card img {
+      width: 100%; height: auto;
+      max-height: 250px; object-fit: cover;
+      border-radius: 12px; margin-bottom: 10px;
+      transition: transform 0.4s ease; /* ✅ Smooth zoom */
+    }
+    .product-card img:hover {
+      transform: scale(1.1); /* ✅ Zoom effect */
+    }
+
+    .product-card h4 { margin: 10px 0; color: #333; }
+    .product-card .category { color: #777; font-size: 14px; }
+    .product-card .price { color: #1775beff; font-size: 18px; font-weight: bold; margin: 10px 0; }
+
+    .rating { display: flex; align-items: center; justify-content: center; gap: 4px; margin: 6px 0 10px; }
+    .rating i { color: #f5a623; }
+    .rating .avg { color: #333; font-size: 13px; margin-left: 6px; }
+    .rating .rcount { color: #777; font-size: 12px; margin-left: 4px; }
+
+    .btn { display: inline-block; padding: 8px 14px; margin: 5px 2px;
+      border-radius: 8px; text-decoration: none; font-size: 14px;
+      transition: all 0.3s ease; }
+    .btn:hover { opacity: 0.85; }
+    .btn-primary { background: #2fd3dfff; color: white; }
+    .btn-outline-danger { border: 1px solid #070707ff; color: #ff4d4d; background: transparent; }
+    .btn-outline-danger:hover { background: #ff4d4d; color: white; }
+
+    /* Pagination */
+    .pagination {
+      text-align: center; margin: 30px 0;
+    }
+    .pagination a {
+      display: inline-block; padding: 8px 14px; margin: 3px;
+      border-radius: 6px; text-decoration: none; color: #333;
+      border: 1px solid #ccc; transition: all 0.3s;
+    }
+    .pagination a:hover { background: #1775be; color: white; border-color: #1775be; }
+    .pagination a.active { background: #1775be; color: white; border-color: #1775be; }
+  </style>
+</head>
+<body>
+  <header>🛍️ Our Products</header>
+
+  <div class="container">
+    <!-- Sidebar -->
+    <aside class="filter">
+      <h3>Filter by Category</h3>
+      <ul>
+        <li><a href="?category=0" class="<?php echo $selectedCategory==0?'active':''; ?>">All</a></li>
+        <?php while ($cat = mysqli_fetch_assoc($categories)) { ?>
+          <li>
+            <a href="?category=<?php echo $cat['id']; ?>" class="<?php echo $selectedCategory==$cat['id']?'active':''; ?>">
+              <?php echo htmlspecialchars($cat['name']); ?>
+            </a>
+          </li>
+        <?php } ?>
+      </ul>
+    </aside>
+
+    <!-- Products -->
+    <section class="products">
+      <?php while ($p = mysqli_fetch_assoc($products)) { ?>
+        <div class="product-card">
+          <img src="uploads/<?php echo htmlspecialchars($p['image']); ?>" 
+               alt="<?php echo htmlspecialchars($p['name']); ?>" 
+               onerror="this.src='uploads/default.png'">
+          <h4><?php echo htmlspecialchars($p['name']); ?></h4>
+          <p class="category"><?php echo htmlspecialchars($p['category_name']); ?></p>
+          <div class="rating">
+            <?php echo renderStars($p['avg_rating']); ?>
+            <span class="rcount">(<?php echo (int)$p['review_count']; ?>)</span>
+          </div>
+          <p class="price">₹<?php echo number_format($p['price'], 2); ?></p>
+          <a href="product_detail.php?id=<?php echo $p['id']; ?>" class="btn btn-primary">View</a>
+          <a href="wishlist.php?action=add&id=<?php echo $p['id']; ?>" class="btn btn-outline-danger">
+            <i class="fas fa-heart"></i> Wishlist
+          </a>
+        </div>
+      <?php } ?>
+    </section>
+  </div>
+
+  <!-- Pagination -->
+  <div class="pagination">
+    <?php
+      $queryString = "&category=$selectedCategory";
+      for ($i = 1; $i <= $totalPages; $i++) {
+        $active = $i == $page ? "active" : "";
+        echo "<a class='$active' href='?page=$i$queryString'>$i</a>";
+      }
+    ?>
+  </div>
+</body>
+</html>
+<?php include '../includes/foooter.php'; ?>
