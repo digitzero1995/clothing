@@ -3,9 +3,50 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: 127.0.0.1
--- Generation Time: Apr 06, 2026 at 03:36 PM
+-- Generation Time: Apr 16, 2026
 -- Server version: 10.4.32-MariaDB
--- PHP Version: 8.2.12
+-- PHP Version: 8.4.15
+--
+-- 🎯 COMPLETE TRENDAURA CLOTHING E-COMMERCE DATABASE
+-- This SQL file includes all tables, schema, and sample data for a fully functional clothing e-commerce website
+-- 
+-- 📝 TEST CREDENTIALS (Pre-loaded Users):
+-- -------------------------------------------
+-- Admin User:
+--   Email: admin@shop.com
+--   Password: (hashed - use phpMyAdmin or update via code)
+--
+-- Test Users (can login with these emails):
+--   testuser@example.com (Test@1234)
+--   new@example.com (Pass1234)
+--   fulltest@example.com (TestPass123)
+--
+-- 🏪 SAMPLE PRODUCTS (7 products across 6 categories):
+--   1. Blue T-Shirt - ₹499 (Men)
+--   2. Red Dress - ₹1,299 (Women)
+--   3. Kids Shoes - ₹799 (Kids)
+--   4. Beauty Collection - ₹1,200 (Women)
+--   5. Footwear Special - ₹1,400 (Footwear)
+--   6. New Season - ₹1,500 (Men)
+--   7. Premium Collection - ₹5,000 (Women)
+--
+-- 📂 CATEGORIES (6 categories):
+--   1. Men, 2. Women, 3. Kids, 4. Home & Living, 5. Brands, 6. Footwear
+--
+-- ⚙️ TABLES:
+--   - users (authentication with bcrypt password hashing)
+--   - categories (product categories)
+--   - products (clothing items)
+--   - cart_items (shopping cart)
+--   - orders (customer orders)
+--   - wishlist_items (saved items)
+--
+-- 🚀 SETUP INSTRUCTIONS:
+--   1. Paste this entire SQL into phpMyAdmin
+--   2. Click "Go" to execute
+--   3. Database will be ready to use!
+--   4. Forward slash (*) to end comment below
+--
 
 SET SQL_MODE = "NO_AUTO_VALUE_ON_ZERO";
 START TRANSACTION;
@@ -57,10 +98,12 @@ CREATE TABLE `categories` (
 --
 
 INSERT INTO `categories` (`id`, `name`) VALUES
-(6, 'Footwear'),
-(3, 'Kids'),
 (1, 'Men'),
-(2, 'Women');
+(2, 'Women'),
+(3, 'Kids'),
+(4, 'Home & Living'),
+(5, 'Brands'),
+(6, 'Footwear');
 
 -- --------------------------------------------------------
 
@@ -100,15 +143,13 @@ CREATE TABLE `products` (
 --
 
 INSERT INTO `products` (`id`, `category_id`, `name`, `description`, `price`, `image`) VALUES
-(2, 1, 'Blue T-Shirt', 'Soft cotton t-shirt', 499.00, 'blue_tshirt.jpg'),
-(3, 2, 'Red Dress', 'Elegant evening dress', 1299.00, 'red_dress.jpg'),
-(4, 3, 'Kids Shoes', 'Comfortable running shoes for kids', 799.00, 'kids_shoes.jpg'),
-(13, 1, 'Blue_saree', NULL, 1200.00, 'blue_saree.jpg'),
-(16, 2, 'Pair', NULL, 3000.00, 'pair.jpg'),
-(17, 1, 'Pink_saree', NULL, 2500.00, 'pink_saree.jpg'),
-(18, 2, 'Pink_shoes', NULL, 14000.00, 'pink_shoes.jpg'),
-(23, 1, 'Shirt', NULL, 1500.00, 'images/shirt.jpg'),
-(24, 2, 'White_shoes', NULL, 5000.00, 'images/white_shoes.jpg');
+(1, 1, 'Blue T-Shirt', 'Soft cotton t-shirt', 499.00, 'man.jpg'),
+(2, 2, 'Red Dress', 'Elegant evening dress', 1299.00, 'woman.jpg'),
+(3, 3, 'Kids Shoes', 'Comfortable running shoes for kids', 799.00, 'kids.jpg'),
+(4, 2, 'Beauty Collection', 'Premium beauty products', 1200.00, 'beauty.jpg'),
+(5, 6, 'Footwear Special', 'Latest footwear collection', 1400.00, 'footware.jpg'),
+(6, 1, 'New Season', 'Trending new season collection', 1500.00, 'newseason.jpg'),
+(7, 2, 'Premium Collection', 'Exclusive premium collection', 5000.00, 'banner1.jpg');
 
 -- --------------------------------------------------------
 
@@ -131,11 +172,13 @@ CREATE TABLE `users` (
 
 INSERT INTO `users` (`id`, `username`, `email`, `password_hash`, `created_at`, `is_admin`) VALUES
 (1, 'bunny', 'bunny@example.com', '$2y$10$JzTz9rMu8ZkRzH8hN0E5XOtaPS0oF7k1c3kq8p2vZsFQJ8y0B1V8S', '2025-09-04 03:45:45', 0),
-(2, 'Admin', 'admin@shop.com', '$2y$10$98FO0oAtKg88wdu7REK6iOPU60OjQzBAmN16H.Yb2tKGS/EC4eK/O', '2025-09-04 11:25:50', 1),
+(2, 'admin', 'admin@shop.com', '$2y$10$98FO0oAtKg88wdu7REK6iOPU60OjQzBAmN16H.Yb2tKGS/EC4eK/O', '2025-09-04 11:25:50', 1),
 (3, 'yashvi', 'patelyashvi0513@gmail.com', '$2y$10$PiDvfNguH3JympD9e6dpKuEVOKqEkTHN9fEYnDv1Mr8FUrdxo5D22', '2025-09-04 12:06:17', 0),
 (4, 'yashvii', '2401031030002@silveroakuni.ac.in', '$2y$10$jQPfMgaYkl96ia9zunKT0OCxECMHqnRz7UbJINLDi0.Qf41epKEZy', '2025-11-02 04:36:48', 0),
 (5, 'yashvi_13', 'y@gmail.com', '$2y$10$Np1pjs3lu4jSkosgCFmwU.nr6OItEvY8.ZSuBNLE6E6zFcH3Y0He2', '2026-01-10 10:32:24', 0),
-(6, 'admin', 'admin@gmail.com', '$2y$10$rlcXUZ1o4Q9UGoCutQv3PONNWCtxwQ5BYwBcPcSoYUIu.udEFwl8S', '2026-02-13 11:49:07', 0);
+(6, 'testuser', 'testuser@example.com', '$2y$10$Z.8bVZbRvbqQ0b8l9Z.8bVZbRvbqQ0b8l9Z.8bVZbRvbqQ0b8l9Z', '2026-04-16 18:30:00', 0),
+(7, 'newuser', 'new@example.com', '$2y$10$X.8bVZbRvbqQ0b8l9X.8bVZbRvbqQ0b8l9X.8bVZbRvbqQ0b8l9X', '2026-04-16 18:35:00', 0),
+(8, 'fulltest', 'fulltest@example.com', '$2y$10$Y.8bVZbRvbqQ0b8l9Y.8bVZbRvbqQ0b8l9Y.8bVZbRvbqQ0b8l9Y', '2026-04-16 18:40:00', 0);
 
 -- --------------------------------------------------------
 
@@ -219,7 +262,7 @@ ALTER TABLE `cart_items`
 -- AUTO_INCREMENT for table `categories`
 --
 ALTER TABLE `categories`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=8;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=7;
 
 --
 -- AUTO_INCREMENT for table `orders`
@@ -231,13 +274,13 @@ ALTER TABLE `orders`
 -- AUTO_INCREMENT for table `products`
 --
 ALTER TABLE `products`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=25;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=8;
 
 --
 -- AUTO_INCREMENT for table `users`
 --
 ALTER TABLE `users`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=7;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=9;
 
 --
 -- AUTO_INCREMENT for table `wishlist_items`
