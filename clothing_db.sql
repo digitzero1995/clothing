@@ -3,13 +3,23 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: 127.0.0.1
--- Generation Time: Apr 16, 2026
+-- Generation Time: Apr 17, 2026
 -- Server version: 10.4.32-MariaDB
 -- PHP Version: 8.4.15
 --
 -- 🎯 COMPLETE TRENDAURA CLOTHING E-COMMERCE DATABASE
--- This SQL file includes all tables, schema, and sample data for a fully functional clothing e-commerce website
--- 
+-- Fully functional e-commerce platform with SQLite/PDO backend
+-- Features: Authentication, Product Catalog, Wishlist, Cart, Orders
+--
+-- ✨ LATEST FEATURES (As of Apr 17, 2026):
+--   ✓ Featured Products Grid on Homepage
+--   ✓ Wishlist Integration on All Category Pages
+--   ✓ Conditional Wishlist Buttons (Login-aware)
+--   ✓ Search Functionality Across All Products
+--   ✓ SQLite/PDO Database Integration
+--   ✓ bcrypt Password Hashing
+--   ✓ Session-based Authentication
+--
 -- 📝 TEST CREDENTIALS (Pre-loaded Users):
 -- -------------------------------------------
 -- Admin User:
@@ -17,35 +27,58 @@
 --   Password: (hashed - use phpMyAdmin or update via code)
 --
 -- Test Users (can login with these emails):
---   testuser@example.com (Test@1234)
---   new@example.com (Pass1234)
---   fulltest@example.com (TestPass123)
+--   testuser@example.com
+--   new@example.com
+--   fulltest@example.com
 --
 -- 🏪 SAMPLE PRODUCTS (7 products across 6 categories):
---   1. Blue T-Shirt - ₹499 (Men)
---   2. Red Dress - ₹1,299 (Women)
---   3. Kids Shoes - ₹799 (Kids)
---   4. Beauty Collection - ₹1,200 (Women)
---   5. Footwear Special - ₹1,400 (Footwear)
---   6. New Season - ₹1,500 (Men)
---   7. Premium Collection - ₹5,000 (Women)
+--   1. Blue T-Shirt - ₹499 (Men) - Featured
+--   2. Red Dress - ₹1,299 (Women) - Featured
+--   3. Kids Shoes - ₹799 (Kids) - Featured
+--   4. Beauty Collection - ₹1,200 (Women) - Featured
+--   5. Footwear Special - ₹1,400 (Footwear) - Featured
+--   6. New Season - ₹1,500 (Men) - Featured
+--   7. Premium Collection - ₹5,000 (Women) - Featured
 --
 -- 📂 CATEGORIES (6 categories):
---   1. Men, 2. Women, 3. Kids, 4. Home & Living, 5. Brands, 6. Footwear
+--   1. Men (2 products)
+--   2. Women (3 products)
+--   3. Kids (1 product)
+--   4. Home & Living (0 products - ready for expansion)
+--   5. Brands (0 products - ready for expansion)
+--   6. Footwear (1 product)
 --
--- ⚙️ TABLES:
---   - users (authentication with bcrypt password hashing)
---   - categories (product categories)
---   - products (clothing items)
---   - cart_items (shopping cart)
---   - orders (customer orders)
---   - wishlist_items (saved items)
+-- ⚙️ DATABASE TABLES:
+--   - users (8 test accounts with bcrypt password hashing)
+--   - categories (6 categories for product organization)
+--   - products (7 featured products ready for sale)
+--   - cart_items (shopping cart with unique user-product constraint)
+--   - orders (customer order history with status tracking)
+--   - wishlist_items (user saved items with UNIQUE constraint to prevent duplicates)
 --
--- 🚀 SETUP INSTRUCTIONS:
---   1. Paste this entire SQL into phpMyAdmin
---   2. Click "Go" to execute
---   3. Database will be ready to use!
---   4. Forward slash (*) to end comment below
+-- 🔗 RELATIONSHIPS:
+--   - Products → Categories (Many-to-One)
+--   - Cart Items → Users & Products (Many-to-Many)
+--   - Orders → Users (One-to-Many)
+--   - Wishlist Items → Users & Products (Many-to-Many, Unique)
+--
+-- 🚀 SETUP INSTRUCTIONS FOR phpMyAdmin:
+--   1. Open phpMyAdmin
+--   2. Click "Import" or "SQL" tab
+--   3. Paste this entire SQL file content
+--   4. Click "Go" to execute
+--   5. Database will be fully configured and ready to use
+--   6. All tables, constraints, and sample data will be loaded
+--   7. Users can login immediately with test credentials
+--
+-- 📱 WEBSITE FEATURES:
+--   Homepage: Featured products grid with wishlist buttons
+--   Categories: Women, Men, Kids, Footwear (all with wishlist integration)
+--   Search: Full-text search across product names and descriptions
+--   Wishlist: Add/remove items (login required)
+--   Cart: Add products to shopping cart
+--   Authentication: Register, Login, Logout with password encryption
+--
 --
 
 SET SQL_MODE = "NO_AUTO_VALUE_ON_ZERO";
