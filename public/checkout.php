@@ -1,57 +1,83 @@
 <?php
-session_start();
+@session_start();
 if (!isset($_SESSION['user_id'])) {
     header("Location: login.php");
     exit();
 }
-include '../config/db_sqlite.php';
+
+// Fixed database connection with inline setup
+$db_file = dirname(__DIR__) . '/clothing.db';
+$conn = null;
+try {
+    $conn = new PDO('sqlite:' . $db_file);
+    $conn->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+} catch (Exception $e) {
+    $conn = null;
+}
 
 $errorMsg = '';
 $successMsg = '';
 $order_id = null;
+$cart_total = 0;
+$cart_items = [];
 
 $address = '';
 $contact = '';
 $payment_method = '';
 
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+// Calculate cart total and items
+if (isset($_SESSION['cart']) && is_array($_SESSION['cart']) && !empty($_SESSION['cart']) && $conn) {
+    foreach ($_SESSION['cart'] as $id => $quantity) {
+        try {
+            $stmt = $conn->prepare("SELECT name, price FROM products WHERE id = ?");
+            $stmt->execute([$id]);
+            if ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+                $subtotal = $row['price'] * $quantity;
+                $cart_total += $subtotal;
+                $cart_items[] = [
+                    'name' => $row['name'],
+                    'quantity' => $quantity,
+                    'price' => $row['price'],
+                    'subtotal' => $subtotal
+                ];
+            }
+        } catch (Exception $e) {
+            // Continue on error
+        }
+    }
+}
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && $conn) {
     $address = isset($_POST['address']) ? trim($_POST['address']) : '';
     $contact = isset($_POST['contact']) ? trim($_POST['contact']) : '';
     $payment_method = isset($_POST['payment_method']) ? trim($_POST['payment_method']) : '';
 
-    if ($address && $contact && $payment_method && !empty($_SESSION['cart'])) {
-        $user_id = $_SESSION['user_id'];
-
-        try {
-            // Calculate total amount
-            $total_amount = 0;
-            foreach ($_SESSION['cart'] as $id => $quantity) {
-                $stmt = $conn->prepare("SELECT price FROM products WHERE id = ?");
-                $stmt->execute([$id]);
-                if ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
-                    $total_amount += $row['price'] * $quantity;
-                }
-            }
-
-            // Insert into orders table
-            $stmt = $conn->prepare("INSERT INTO orders (user_id, total_price, payment_method, status, shipping_name, shipping_phone, shipping_address) VALUES (?, ?, ?, 'Pending', ?, ?, ?)");
-            $stmt->execute([$user_id, $total_amount, $payment_method, $_SESSION['username'], $contact, $address]);
-            
-            // Get the last inserted order ID
-            $order_id = $conn->lastInsertId();
-
-            // Clear cart
-            unset($_SESSION['cart']);
-            $successMsg = "Thank you for your order! Your order #" . $order_id . " has been placed with Cash on Delivery.";
-        } catch (Exception $e) {
-            $errorMsg = "Error placing order: " . $e->getMessage();
-        }
+    if (empty($address) || empty($contact) || empty($payment_method)) {
+        $errorMsg = "Please fill in all required fields.";
+    } elseif (empty($_SESSION['cart'])) {
+        $errorMsg = "Your cart is empty.";
     } else {
-        $errorMsg = "Please fill in all fields, select payment method, and ensure your cart is not empty.";
+        try {
+            $user_id = $_SESSION['user_id'];
+            $stmt = $conn->prepare("INSERT INTO orders (user_id, total_price, payment_method, status, shipping_name, shipping_phone, shipping_address) VALUES (?, ?, ?, 'Pending', ?, ?, ?)");
+            $stmt->execute([
+                $user_id, 
+                $cart_total, 
+                $payment_method, 
+                $_SESSION['username'] ?? 'User', 
+                $contact, 
+                $address
+            ]);
+            
+            $order_id = $conn->lastInsertId();
+            unset($_SESSION['cart']);
+            $successMsg = "Thank you! Your order #" . str_pad($order_id, 5, '0', STR_PAD_LEFT) . " has been placed successfully.";
+        } catch (Exception $e) {
+            $errorMsg = "Error placing order. Please try again.";
+        }
     }
 }
 ?>
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -61,100 +87,143 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
 </head>
-<body class="bg-gray-100">
+<body class="bg-gray-50">
 
-<?php include '../includes/header.php'; ?>
+<!-- TOP BAR -->
+<div class="bg-black text-white text-sm px-6 py-2 flex justify-between">
+    <div>GREENCARD | GIFT CARD | STORE LOCATOR | TRACK ORDER | CONTACT</div>
+    <div>STORE MODE</div>
+</div>
 
-<style>
-body {
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    background: linear-gradient(135deg, #89f7fe 0%, #66a6ff 100%);
-    margin: 0;
-    padding: 40px 20px;
-    color: #333;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    min-height: 80vh;
-}
-.checkout-container {
-    background: #fff;
-    padding: 40px 50px;
-    max-width: 450px;
-    border-radius: 15px;
-    box-shadow: 0 15px 30px rgba(102, 166, 255, 0.3);
-    text-align: center;
-    animation: fadeInScale 0.8s ease forwards;
-}
-.checkout-container h1 {
-    font-size: 2rem;
-    margin-bottom: 20px;
-}
-.checkout-container input, 
-.checkout-container textarea, 
-.checkout-container select {
-    width: 100%;
-    padding: 12px;
-    margin: 10px 0;
-    border: 1px solid #ccc;
-    border-radius: 8px;
-}
-.checkout-container button {
-    background: #66a6ff;
-    color: white;
-    padding: 12px 20px;
-    border: none;
-    border-radius: 8px;
-    cursor: pointer;
-    font-weight: bold;
-    margin-top: 20px;
-}
-.checkout-container button:hover {
-    background: #89f7fe;
-}
-.success-msg {
-    color: green;
-    font-weight: bold;
-    margin-bottom: 15px;
-}
-.error-msg {
-    color: red;
-    font-weight: bold;
-    margin-bottom: 15px;
-}
-@keyframes fadeInScale {
-    0% { opacity: 0; transform: scale(0.85); }
-    100% { opacity: 1; transform: scale(1); }
-}
-</style>
+<!-- NAVBAR -->
+<nav class="bg-white shadow-md px-6 py-4 flex justify-between items-center">
+    <a href="index.php" class="text-3xl font-bold text-teal-500">TrendAura</a>
+    <div class="flex items-center space-x-4">
+        <a href="index.php" title="Home"><i class="fa fa-home text-gray-700 text-xl"></i></a>
+        <a href="wishlist.php" title="Wishlist"><i class="fa fa-heart text-red-500 text-xl"></i></a>
+        <a href="cart.php" title="Shopping Cart"><i class="fa fa-shopping-cart text-gray-700 text-xl"></i></a>
+    </div>
+</nav>
 
-<div class="checkout-container">
-    <h1>Checkout</h1>
-
-    <?php if ($successMsg): ?>
-        <p class="success-msg"><?php echo $successMsg; ?></p>
-        <p>Redirecting to order details...</p>
-        <script>
-            setTimeout(function() {
-                window.location.href = "order_success.php?id=<?php echo $order_id; ?>";
-            }, 2000);
-        </script>
+<!-- MAIN CHECKOUT SECTION -->
+<div class="container mx-auto px-4 py-8">
+    <?php if (!$conn): ?>
+        <div class="bg-red-50 border-l-4 border-red-500 p-6 rounded-lg">
+            <h2 class="text-2xl font-bold text-red-800 mb-2">Database Error</h2>
+            <p class="text-red-700">Unable to connect to database. Please try again later.</p>
+        </div>
     <?php else: ?>
-        <?php if ($errorMsg): ?>
-            <p class="error-msg"><?php echo $errorMsg; ?></p>
-        <?php endif; ?>
-        <form method="post">
-            <textarea name="address" placeholder="Enter your address" required><?php echo htmlspecialchars($address); ?></textarea>
-            <input type="text" name="contact" placeholder="Enter your contact number" value="<?php echo htmlspecialchars($contact); ?>" required>
-            <label for="payment_method" style="display:block; margin-top:15px; font-weight:bold;">Payment Method:</label>
-            <select name="payment_method" id="payment_method" required>
-                <option value="cod" <?php if(isset($_POST['payment_method']) && $_POST['payment_method']=='cod') echo 'selected'; ?>>Cash on Delivery</option>
-            </select>
-            <button type="submit">Place Order</button>
-        </form>
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+    
+    <!-- CHECKOUT FORM -->
+    <div class="md:col-span-2">
+        <div class="bg-white rounded-lg shadow p-6">
+            <h2 class="text-2xl font-bold text-gray-800 mb-6">Checkout</h2>
+
+            <?php if ($successMsg): ?>
+                <div class="bg-green-50 border-l-4 border-green-500 p-4 mb-4">
+                    <h3 class="font-bold text-green-800 mb-2">✓ Order Placed Successfully!</h3>
+                    <p class="text-green-700"><?php echo htmlspecialchars($successMsg); ?></p>
+                </div>
+                <div class="text-center mt-8">
+                    <p class="text-gray-600 mb-4">Redirecting to order details in 3 seconds...</p>
+                    <a href="order_success.php?id=<?php echo $order_id; ?>" class="inline-block bg-teal-500 text-white px-6 py-2 rounded hover:bg-teal-600">
+                        View Order Details
+                    </a>
+                </div>
+                <script>
+                    setTimeout(function() {
+                        window.location.href = "order_success.php?id=<?php echo $order_id; ?>";
+                    }, 3000);
+                </script>
+            <?php else: ?>
+                <?php if ($errorMsg): ?>
+                    <div class="bg-red-50 border-l-4 border-red-500 p-4 mb-4">
+                        <p class="text-red-800 font-semibold"><?php echo htmlspecialchars($errorMsg); ?></p>
+                    </div>
+                <?php endif; ?>
+
+                <form method="POST" class="space-y-4">
+                    <div>
+                        <label class="block text-gray-700 font-semibold mb-2">Full Name</label>
+                        <input type="text" value="<?php echo htmlspecialchars($_SESSION['username'] ?? ''); ?>" disabled class="w-full px-4 py-2 border border-gray-300 rounded bg-gray-100" />
+                    </div>
+
+                    <div>
+                        <label class="block text-gray-700 font-semibold mb-2">Email</label>
+                        <input type="email" value="<?php echo htmlspecialchars($_SESSION['email'] ?? ''); ?>" disabled class="w-full px-4 py-2 border border-gray-300 rounded bg-gray-100" />
+                    </div>
+
+                    <div>
+                        <label class="block text-gray-700 font-semibold mb-2">Shipping Address *</label>
+                        <textarea name="address" placeholder="Enter your complete address" required class="w-full px-4 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-teal-500"><?php echo htmlspecialchars($address); ?></textarea>
+                    </div>
+
+                    <div>
+                        <label class="block text-gray-700 font-semibold mb-2">Phone Number *</label>
+                        <input type="tel" name="contact" placeholder="Enter your phone number" value="<?php echo htmlspecialchars($contact); ?>" required class="w-full px-4 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-teal-500" />
+                    </div>
+
+                    <div>
+                        <label class="block text-gray-700 font-semibold mb-2">Payment Method *</label>
+                        <select name="payment_method" required class="w-full px-4 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-teal-500">
+                            <option value="">-- Select Payment Method --</option>
+                            <option value="cod" <?php if($payment_method == 'cod') echo 'selected'; ?>>Cash on Delivery (COD)</option>
+                        </select>
+                    </div>
+
+                    <button type="submit" class="w-full bg-teal-500 text-white font-bold py-3 rounded hover:bg-teal-600 transition">
+                        <i class="fa fa-check-circle mr-2"></i> Place Order
+                    </button>
+                </form>
+            <?php endif; ?>
+        </div>
+    </div>
+
+    <!-- ORDER SUMMARY -->
+    <div class="md:col-span-1">
+        <div class="bg-white rounded-lg shadow p-6 sticky top-4">
+            <h3 class="text-xl font-bold text-gray-800 mb-4">Order Summary</h3>
+            
+            <?php if (!empty($cart_items)): ?>
+                <div class="space-y-3 mb-4 pb-4 border-b">
+                    <?php foreach ($cart_items as $item): ?>
+                        <div class="flex justify-between text-gray-700">
+                            <span><?php echo htmlspecialchars($item['name']); ?> <span class="text-gray-500">x<?php echo $item['quantity']; ?></span></span>
+                            <span class="font-semibold">₹<?php echo number_format($item['subtotal'], 2); ?></span>
+                        </div>
+                    <?php endforeach; ?>
+                </div>
+                
+                <div class="space-y-2">
+                    <div class="flex justify-between text-gray-700">
+                        <span>Subtotal:</span>
+                        <span>₹<?php echo number_format($cart_total, 2); ?></span>
+                    </div>
+                    <div class="flex justify-between text-gray-700">
+                        <span>Shipping:</span>
+                        <span class="text-green-600">FREE</span>
+                    </div>
+                    <div class="border-t pt-2 flex justify-between text-lg font-bold text-teal-600">
+                        <span>Total:</span>
+                        <span>₹<?php echo number_format($cart_total, 2); ?></span>
+                    </div>
+                </div>
+            <?php else: ?>
+                <p class="text-gray-500 text-center py-8">Your cart is empty</p>
+                <a href="category.php?cat=all" class="block text-center bg-teal-500 text-white py-2 rounded hover:bg-teal-600">
+                    Continue Shopping
+                </a>
+            <?php endif; ?>
+        </div>
+    </div>
     <?php endif; ?>
 </div>
 
+<!-- FOOTER -->
+<footer class="bg-black text-white text-center py-4 mt-12">
+    © 2026 TrendAura - Your Trusted Fashion Partner
+</footer>
+
 </body>
 </html>
-<?php include '../includes/foooter.php'; ?>
