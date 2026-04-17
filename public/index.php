@@ -1,3 +1,19 @@
+<?php
+session_start();
+include '../config/db_sqlite.php';
+
+// Fetch featured products
+$products = [];
+try {
+    $stmt = $conn->query("SELECT id, name, price, image, description FROM products LIMIT 8");
+    $products = $stmt->fetchAll(PDO::FETCH_ASSOC);
+} catch (Exception $e) {
+    $products = [];
+}
+
+// Check if user is logged in
+$is_logged_in = isset($_SESSION['user_id']);
+?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -136,6 +152,49 @@ TrendAura
 <p class="mt-2 font-semibold">NEW SEASON</p>
 </div>
 
+</div>
+
+
+<!-- FEATURED PRODUCTS -->
+<div class="p-8 bg-white">
+<h2 class="text-3xl font-bold text-center mb-6">Featured Products</h2>
+
+<?php if (!empty($products)): ?>
+<div class="grid md:grid-cols-4 gap-6">
+    <?php foreach ($products as $product): ?>
+    <div class="bg-white rounded-lg shadow hover:shadow-lg transition border">
+        <img src="assets/<?php echo htmlspecialchars($product['image']); ?>" alt="<?php echo htmlspecialchars($product['name']); ?>" class="w-full h-48 object-cover rounded-t-lg">
+        
+        <div class="p-4">
+            <h3 class="font-semibold text-lg mb-1"><?php echo htmlspecialchars($product['name']); ?></h3>
+            <p class="text-gray-600 text-sm mb-3"><?php echo htmlspecialchars(substr($product['description'] ?? 'Premium clothing item', 0, 50)); ?>...</p>
+            
+            <div class="flex justify-between items-end mb-3">
+                <span class="text-teal-500 font-bold text-xl">₹<?php echo number_format($product['price'], 2); ?></span>
+                <div class="flex gap-2">
+                    <?php if ($is_logged_in): ?>
+                    <a href="wishlist.php?action=add&id=<?php echo $product['id']; ?>" class="text-red-500 hover:text-red-600 text-xl" title="Add to Wishlist">
+                        <i class="fa fa-heart"></i>
+                    </a>
+                    <?php else: ?>
+                    <a href="login.php?redirect=index.php" class="text-gray-400 hover:text-red-500 text-xl" title="Login to add to wishlist">
+                        <i class="fa fa-heart"></i>
+                    </a>
+                    <?php endif; ?>
+                </div>
+            </div>
+            
+            <div class="flex gap-2">
+                <a href="product_details.php?id=<?php echo $product['id']; ?>" class="flex-1 bg-teal-500 text-white px-3 py-2 rounded text-sm hover:bg-teal-600 text-center">View</a>
+                <a href="cart.php?action=add&id=<?php echo $product['id']; ?>&qty=1" class="flex-1 bg-blue-500 text-white px-3 py-2 rounded text-sm hover:bg-blue-600 text-center">
+                    <i class="fa fa-cart-plus"></i> Add
+                </a>
+            </div>
+        </div>
+    </div>
+    <?php endforeach; ?>
+</div>
+<?php endif; ?>
 </div>
 
 
