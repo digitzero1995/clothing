@@ -1,13 +1,14 @@
 <?php
 session_start();
 if (!isset($_SESSION['user_id'])) {
-    header("Location: ../auth/login.php");
+    header("Location: login.php");
     exit();
 }
-include '../config/db.php';
+include '../config/db_sqlite.php';
 
 $errorMsg = '';
 $successMsg = '';
+$order_id = null;
 
 $address = '';
 $contact = '';
@@ -21,54 +22,48 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($address && $contact && $payment_method && !empty($_SESSION['cart'])) {
         $user_id = $_SESSION['user_id'];
 
-        // Calculate total amount
-        $total_amount = 0;
-        foreach ($_SESSION['cart'] as $id => $quantity) {
-            $stmt = $conn->prepare("SELECT price FROM products WHERE id = ?");
-            $stmt->bind_param("i", $id);
-            $stmt->execute();
-            $result = $stmt->get_result();
-            if ($row = $result->fetch_assoc()) {
-                $total_amount += $row['price'] * $quantity;
+        try {
+            // Calculate total amount
+            $total_amount = 0;
+            foreach ($_SESSION['cart'] as $id => $quantity) {
+                $stmt = $conn->prepare("SELECT price FROM products WHERE id = ?");
+                $stmt->execute([$id]);
+                if ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+                    $total_amount += $row['price'] * $quantity;
+                }
             }
-            $stmt->close();
+
+            // Insert into orders table
+            $stmt = $conn->prepare("INSERT INTO orders (user_id, total_price, payment_method, status, shipping_name, shipping_phone, shipping_address) VALUES (?, ?, ?, 'Pending', ?, ?, ?)");
+            $stmt->execute([$user_id, $total_amount, $payment_method, $_SESSION['username'], $contact, $address]);
+            
+            // Get the last inserted order ID
+            $order_id = $conn->lastInsertId();
+
+            // Clear cart
+            unset($_SESSION['cart']);
+            $successMsg = "Thank you for your order! Your order #" . $order_id . " has been placed with Cash on Delivery.";
+        } catch (Exception $e) {
+            $errorMsg = "Error placing order: " . $e->getMessage();
         }
-
-        // Insert into orders table (payment_method added)
-        $stmt = $conn->prepare("INSERT INTO orders (user_id, total_amount, status, address, contact, payment_method) VALUES (?, ?, 'pending', ?, ?, ?)");
-        $stmt->bind_param("idsss", $user_id, $total_amount, $address, $contact, $payment_method);
-        $stmt->execute();
-        $order_id = $stmt->insert_id;
-        $stmt->close();
-
-        // Insert each product into order_items
-        $stmt_items = $conn->prepare("INSERT INTO order_items (order_id, product_id, quantity, subtotal) VALUES (?, ?, ?, ?)");
-        foreach ($_SESSION['cart'] as $id => $quantity) {
-            $stmt_price = $conn->prepare("SELECT price FROM products WHERE id = ?");
-            $stmt_price->bind_param("i", $id);
-            $stmt_price->execute();
-            $result_price = $stmt_price->get_result();
-            $row_price = $result_price->fetch_assoc();
-            $price = $row_price['price'];
-            $stmt_price->close();
-
-            $subtotal = $price * $quantity;
-
-            $stmt_items->bind_param("iiid", $order_id, $id, $quantity, $subtotal);
-            $stmt_items->execute();
-        }
-        $stmt_items->close();
-
-        // Clear cart
-        unset($_SESSION['cart']);
-        $successMsg = "Thank you, " . htmlspecialchars($_SESSION['user_name']) . ", your order has been placed with Cash on Delivery!";
     } else {
         $errorMsg = "Please fill in all fields, select payment method, and ensure your cart is not empty.";
     }
 }
 ?>
 
-<?php include 'header.php'; ?>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Checkout - TrendAura</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+</head>
+<body class="bg-gray-100">
+
+<?php include '../includes/header.php'; ?>
 
 <style>
 body {
@@ -138,7 +133,12 @@ body {
 
     <?php if ($successMsg): ?>
         <p class="success-msg"><?php echo $successMsg; ?></p>
-        <a href="index.php">Back to Store</a>
+        <p>Redirecting to order details...</p>
+        <script>
+            setTimeout(function() {
+                window.location.href = "order_success.php?id=<?php echo $order_id; ?>";
+            }, 2000);
+        </script>
     <?php else: ?>
         <?php if ($errorMsg): ?>
             <p class="error-msg"><?php echo $errorMsg; ?></p>
@@ -155,4 +155,6 @@ body {
     <?php endif; ?>
 </div>
 
+</body>
+</html>
 <?php include '../includes/foooter.php'; ?>
