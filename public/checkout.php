@@ -90,9 +90,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $conn) {
 <body class="bg-gray-50">
 
 <!-- TOP BAR -->
-<div class="bg-black text-white text-sm px-6 py-2 flex justify-between">
-    <div>GREENCARD | GIFT CARD | STORE LOCATOR | TRACK ORDER | CONTACT</div>
-    <div>STORE MODE</div>
+<div class="bg-black text-white text-sm px-6 py-2 flex justify-between items-center">
+    <div class="space-x-6 flex">
+        <a href="gift-cards.php" class="hover:text-yellow-400">GREENCARD</a>
+        <a href="gift-cards.php" class="hover:text-yellow-400">GIFT CARD</a>
+        <a href="store-locator.php" class="hover:text-yellow-400">STORE LOCATOR</a>
+        <a href="track-order.php" class="hover:text-yellow-400">TRACK ORDER</a>
+        <a href="contact.php" class="hover:text-yellow-400">CONTACT</a>
+    </div>
+    <div>
+        <a href="store-mode.php" class="hover:text-yellow-400">STORE MODE</a>
+    </div>
 </div>
 
 <!-- NAVBAR -->
